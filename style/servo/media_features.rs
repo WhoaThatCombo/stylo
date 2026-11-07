@@ -154,13 +154,97 @@ fn eval_any_hover(context: &Context, query_value: Option<Hover>) -> bool {
 }
 
 /// <https://drafts.csswg.org/mediaqueries-4/#aspect-ratio>
+/// Defines a keyword media feature whose value never changes in Stillwater/Servo: `$matches` is
+/// the device's value, and `$boolean` is what the feature evaluates to on its own, as in
+/// `@media (forced-colors)`.
+macro_rules! fixed_keyword_feature {
+    ($(#[$meta:meta])* $name:ident, $enum:ident { $($variant:ident),+ }, $matches:ident, $boolean:expr) => {
+        #[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, ToCss)]
+        #[repr(u8)]
+        enum $enum {
+            $($variant),+
+        }
+
+        $(#[$meta])*
+        fn $name(_: &Context, query_value: Option<$enum>) -> bool {
+            match query_value {
+                Some(value) => value == $enum::$matches,
+                None => $boolean,
+            }
+        }
+    };
+}
+
+fixed_keyword_feature!(
+    /// https://drafts.csswg.org/mediaqueries-5/#prefers-reduced-motion
+    eval_prefers_reduced_motion, PrefersReducedMotion { NoPreference, Reduce }, NoPreference, false
+);
+fixed_keyword_feature!(
+    /// https://drafts.csswg.org/mediaqueries-5/#prefers-reduced-transparency
+    eval_prefers_reduced_transparency,
+    PrefersReducedTransparency { NoPreference, Reduce },
+    NoPreference,
+    false
+);
+fixed_keyword_feature!(
+    /// https://drafts.csswg.org/mediaqueries-5/#prefers-contrast
+    eval_prefers_contrast, PrefersContrast { NoPreference, More, Less, Custom }, NoPreference, false
+);
+fixed_keyword_feature!(
+    /// https://drafts.csswg.org/mediaqueries-5/#forced-colors
+    eval_forced_colors, ForcedColors { None, Active }, None, false
+);
+fixed_keyword_feature!(
+    /// https://drafts.csswg.org/mediaqueries-5/#inverted
+    eval_inverted_colors, InvertedColors { None, Inverted }, None, false
+);
+fixed_keyword_feature!(
+    /// https://w3c.github.io/manifest/#the-display-mode-media-feature
+    eval_display_mode,
+    DisplayMode { Browser, MinimalUi, Standalone, Fullscreen, PictureInPicture },
+    Browser,
+    true
+);
+fixed_keyword_feature!(
+    /// https://drafts.csswg.org/mediaqueries-4/#update
+    eval_update, Update { None, Slow, Fast }, Fast, true
+);
+fixed_keyword_feature!(
+    /// https://drafts.csswg.org/mediaqueries-5/#dynamic-range
+    eval_dynamic_range, DynamicRange { Standard, High }, Standard, true
+);
+
+/// https://drafts.csswg.org/mediaqueries-4/#color-gamut
+/// The screen covers sRGB; wider gamuts aren't reported.
+#[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, ToCss)]
+#[repr(u8)]
+enum ColorGamut {
+    Srgb,
+    P3,
+    Rec2020,
+}
+
+fn eval_color_gamut(_: &Context, query_value: Option<ColorGamut>) -> bool {
+    query_value.map_or(true, |value| value == ColorGamut::Srgb)
+}
+
+/// https://drafts.csswg.org/mediaqueries-4/#color: bits per color component.
+fn eval_color(_: &Context) -> i32 {
+    8
+}
+
+/// https://drafts.csswg.org/mediaqueries-4/#monochrome
+fn eval_monochrome(_: &Context) -> i32 {
+    0
+}
+
 fn eval_aspect_ratio(context: &Context) -> Ratio {
     let size = context.device().au_viewport_size();
     Ratio::new(size.width.0 as f32, size.height.0 as f32)
 }
 
 /// A list with all the media features that Servo supports.
-pub static MEDIA_FEATURES: [QueryFeatureDescription; 15] = [
+pub static MEDIA_FEATURES: [QueryFeatureDescription; 26] = [
     feature!(
         atom!("width"),
         AllowsRanges::Yes,
@@ -249,6 +333,71 @@ pub static MEDIA_FEATURES: [QueryFeatureDescription; 15] = [
         atom!("prefers-color-scheme"),
         AllowsRanges::No,
         keyword_evaluator!(eval_prefers_color_scheme, PrefersColorScheme),
+        FeatureFlags::empty(),
+    ),    feature!(
+        atom!("prefers-reduced-motion"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_prefers_reduced_motion, PrefersReducedMotion),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("prefers-reduced-transparency"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_prefers_reduced_transparency, PrefersReducedTransparency),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("prefers-contrast"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_prefers_contrast, PrefersContrast),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("forced-colors"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_forced_colors, ForcedColors),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("inverted-colors"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_inverted_colors, InvertedColors),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("display-mode"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_display_mode, DisplayMode),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("update"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_update, Update),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("dynamic-range"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_dynamic_range, DynamicRange),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("color-gamut"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_color_gamut, ColorGamut),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("color"),
+        AllowsRanges::Yes,
+        Evaluator::Integer(eval_color),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("monochrome"),
+        AllowsRanges::Yes,
+        Evaluator::Integer(eval_monochrome),
         FeatureFlags::empty(),
     ),
 ];

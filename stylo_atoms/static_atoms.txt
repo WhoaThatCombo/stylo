@@ -217,3 +217,13 @@ webkitTransitionEnd
 webkitTransitionRun
 week
 width
+prefers-reduced-motion
+prefers-reduced-transparency
+prefers-contrast
+forced-colors
+inverted-colors
+display-mode
+update
+dynamic-range
+color-gamut
+monochrome

@@ -187,13 +187,14 @@ impl LengthUnit {
             "lvi" if !in_page_rule => Self::Lvi,
             "dvi" if !in_page_rule => Self::Dvi,
             // Container query lengths. Inherit the limitation from viewport units since
-            // we may fall back to them.
-            "cqw" if !in_page_rule && cfg!(feature = "gecko") => Self::Cqw,
-            "cqh" if !in_page_rule && cfg!(feature = "gecko") => Self::Cqh,
-            "cqi" if !in_page_rule && cfg!(feature = "gecko") => Self::Cqi,
-            "cqb" if !in_page_rule && cfg!(feature = "gecko") => Self::Cqb,
-            "cqmin" if !in_page_rule && cfg!(feature = "gecko") => Self::Cqmin,
-            "cqmax" if !in_page_rule && cfg!(feature = "gecko") => Self::Cqmax,
+            // we may fall back to them. Servo has no query containers yet, so there they
+            // resolve against the viewport, as the spec does when there is no container.
+            "cqw" if !in_page_rule && container_lengths_enabled() => Self::Cqw,
+            "cqh" if !in_page_rule && container_lengths_enabled() => Self::Cqh,
+            "cqi" if !in_page_rule && container_lengths_enabled() => Self::Cqi,
+            "cqb" if !in_page_rule && container_lengths_enabled() => Self::Cqb,
+            "cqmin" if !in_page_rule && container_lengths_enabled() => Self::Cqmin,
+            "cqmax" if !in_page_rule && container_lengths_enabled() => Self::Cqmax,
             _ => return Err(()),
         })
     }
@@ -1782,6 +1783,12 @@ macro_rules! parse_size_non_length {
             return size;
         }
     }};
+}
+
+/// Whether container query length units (cqw, cqi...) parse.
+#[inline]
+fn container_lengths_enabled() -> bool {
+    cfg!(feature = "gecko") || crate::pref!("layout.css.container-queries.enabled")
 }
 
 fn is_webkit_fill_available_enabled_in_width_and_height() -> bool {
