@@ -369,8 +369,15 @@ impl Device {
             return supports_dark_mode;
         }
 
-        // If either both or none are supported, then use the preferred color scheme
-        // to determine whether the user wants dark mode.
+        // Neither (`color-scheme: normal`, the default): the page hasn't said it can be shown
+        // dark, so it gets the light defaults whatever the user prefers. Otherwise a page with
+        // its own light design gets light grey text (dark `CanvasText`) on its white background.
+        // https://drafts.csswg.org/css-color-adjust/#color-scheme-prop
+        if !supports_dark_mode {
+            return false;
+        }
+
+        // Both: use the preferred color scheme to determine whether the user wants dark mode.
         return self.color_scheme() == PrefersColorScheme::Dark;
     }
 
